@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>FleetGuard — Alert Escalation System</title>
+  <meta name="description" content="Intelligent fleet alert escalation and resolution dashboard"/>
+  <link rel="stylesheet" href="styles.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════ LOGIN PAGE ══ -->
+<div id="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon">🛡️</div>
+      <div>
+        <h1>FleetGuard</h1>
+        <div style="font-size:11px;color:var(--text-3)">Alert Escalation System</div>
+      </div>
+    </div>
+    <p class="login-subtitle">Sign in to monitor and manage fleet alerts in real-time.</p>
+    <div class="login-tabs">
+      <div class="login-tab active" id="tab-login" onclick="switchAuthTab('login')">Sign In</div>
+      <div class="login-tab" id="tab-register" onclick="switchAuthTab('register')">Register</div>
+    </div>
+    <!-- Login Form -->
+    <div id="form-login">
+      <div class="form-group">
+        <label>Username</label>
+        <input id="login-username" type="text" placeholder="e.g. admin" autocomplete="username"/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input id="login-password" type="password" placeholder="••••••" autocomplete="current-password"/>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="doLogin()">
+        <i class="fa fa-sign-in-alt"></i> Sign In
+      </button>
+    </div>
+    <!-- Register Form -->
+    <div id="form-register" class="hidden">
+      <div class="form-group">
+        <label>Username</label>
+        <input id="reg-username" type="text" placeholder="Choose a username"/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input id="reg-password" type="password" placeholder="Min 6 characters"/>
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="reg-role">
+          <option value="USER">User (read-only)</option>
+          <option value="OPERATOR">Operator (can resolve)</option>
+          <option value="ADMIN" selected>Admin (full access)</option>
+        </select>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="doRegister()">
+        <i class="fa fa-user-plus"></i> Create Account
+      </button>
+    </div>
+    <p class="text-muted" style="text-align:center;margin-top:20px;font-size:12px">
+      Demo credentials — admin / admin123
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ MAIN APP ════ -->
+<div id="main-app" class="hidden">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">🛡️</div>
+      <div>
+        <div class="brand-name">FleetGuard</div>
+        <div class="brand-sub">Alert System</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard')">
+        <i class="fa fa-chart-line"></i> Dashboard
+      </div>
+      <div class="nav-item" id="nav-alerts" onclick="navigate('alerts')">
+        <i class="fa fa-bell"></i> Alerts
+        <span id="nav-open-count" style="margin-left:auto;background:rgba(245,158,11,.2);color:var(--amber);font-size:10px;padding:1px 7px;border-radius:10px;display:none"></span>
+      </div>
+      <div class="nav-section-label">Admin</div>
+      <div class="nav-item" id="nav-rules" onclick="navigate('rules')">
+        <i class="fa fa-cogs"></i> Escalation Rules
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="user-avatar" id="user-avatar">A</div>
+        <div>
+          <div class="user-name" id="sidebar-username">—</div>
+          <div class="user-role" id="sidebar-role">—</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-full btn-sm" style="margin-top:8px" onclick="doLogout()">
+        <i class="fa fa-sign-out-alt"></i> Sign Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main id="content">
+    <header class="content-header">
+      <div class="header-title">
+        <h2 id="page-title">Dashboard</h2>
+        <p id="page-subtitle">Real-time fleet alert overview</p>
+      </div>
+      <div class="header-right">
+        <span class="refresh-badge" id="refresh-badge">Live</span>
+        <span id="live-clock"></span>
+        <button class="btn btn-ghost btn-sm" onclick="refreshCurrentPage()">
+          <i class="fa fa-sync-alt"></i> Refresh
+        </button>
+      </div>
+    </header>
+
+    <!-- ── DASHBOARD PAGE ───────────────────── -->
+    <section class="page active" id="page-dashboard">
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card open">
+          <i class="fa fa-bell stat-icon"></i>
+          <div class="stat-label">Open</div>
+          <div class="stat-value" id="stat-open">—</div>
+          <div class="stat-sub">Awaiting action</div>
+        </div>
+        <div class="stat-card escalated">
+          <i class="fa fa-exclamation-triangle stat-icon"></i>
+          <div class="stat-label">Escalated</div>
+          <div class="stat-value" id="stat-escalated">—</div>
+          <div class="stat-sub">Rule-triggered</div>
+        </div>
+        <div class="stat-card critical">
+          <i class="fa fa-fire stat-icon"></i>
+          <div class="stat-label">Critical</div>
+          <div class="stat-value" id="stat-critical">—</div>
+          <div class="stat-sub">High severity</div>
+        </div>
+        <div class="stat-card resolved">
+          <i class="fa fa-check-circle stat-icon"></i>
+          <div class="stat-label">Resolved</div>
+          <div class="stat-value" id="stat-resolved">—</div>
+          <div class="stat-sub">Closed alerts</div>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fa fa-chart-area" style="color:var(--accent);margin-right:8px"></i>7-Day Alert Trend</h3>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fa fa-trophy" style="color:var(--amber);margin-right:8px"></i>Top Offenders</h3>
+          </div>
+          <div class="card-body-sm" id="top-offenders-list">
+            <div class="empty-state"><i class="fa fa-spinner fa-spin"></i><p>Loading...</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3><i class="fa fa-history" style="color:var(--cyan);margin-right:8px"></i>Recent Events</h3>
+          <span class="text-muted">Latest escalations &amp; auto-closes</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Alert ID</th><th>Source</th><th>Severity</th>
+              <th>Status</th><th>Driver ID</th><th>Time</th>
+            </tr></thead>
+            <tbody id="recent-events-body">
+              <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-3)"><i class="fa fa-spinner fa-spin"></i> Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── ALERTS PAGE ──────────────────────── -->
+    <section class="page" id="page-alerts">
+      <div class="filter-bar">
+        <select id="filter-status" onchange="loadAlerts(0)">
+          <option value="">All Statuses</option>
+          <option value="OPEN">Open</option>
+          <option value="ESCALATED">Escalated</option>
+          <option value="AUTO_CLOSED">Auto-Closed</option>
+          <option value="RESOLVED">Resolved</option>
+        </select>
+        <select id="filter-severity" onchange="loadAlerts(0)">
+          <option value="">All Severities</option>
+          <option value="INFO">Info</option>
+          <option value="WARNING">Warning</option>
+          <option value="CRITICAL">Critical</option>
+        </select>
+        <span class="text-muted" id="alerts-count-label"></span>
+        <div class="ml-auto">
+          <button class="btn btn-primary" onclick="openModal('modal-ingest')">
+            <i class="fa fa-plus"></i> Ingest Alert
+          </button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Alert ID</th><th>Source</th><th>Severity</th>
+              <th>Status</th><th>Driver</th><th>Timestamp</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="alerts-table-body"></tbody>
+          </table>
+        </div>
+        <div id="alerts-pagination" class="pagination"></div>
+      </div>
+    </section>
+
+    <!-- ── RULES PAGE ───────────────────────── -->
+    <section class="page" id="page-rules">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+        <button class="btn btn-primary" onclick="openCreateRuleModal()">
+          <i class="fa fa-plus"></i> New Rule
+        </button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Name</th><th>Source</th><th>Condition</th>
+              <th>Threshold</th><th>Window</th><th>Action</th><th>Active</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="rules-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════ MODAL: ALERT DETAIL ══ -->
+<div class="modal-overlay" id="modal-detail-overlay" onclick="handleOverlayClick(event,'modal-detail-overlay')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 id="detail-modal-title">Alert Detail</h3>
+      <button class="modal-close" onclick="closeModal('modal-detail-overlay')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="meta-grid" id="detail-meta" style="margin-bottom:16px"></div>
+      <div class="divider"></div>
+      <h4 style="font-size:13px;margin-bottom:12px;color:var(--text-2)"><i class="fa fa-layer-group" style="margin-right:6px"></i>Metadata</h4>
+      <div class="meta-grid" id="detail-payload" style="margin-bottom:16px"></div>
+      <div class="divider"></div>
+      <h4 style="font-size:13px;margin-bottom:12px;color:var(--text-2)"><i class="fa fa-history" style="margin-right:6px"></i>Status History</h4>
+      <div class="timeline" id="detail-history"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-detail-overlay')">Close</button>
+      <button class="btn btn-success" id="detail-resolve-btn" onclick="resolveCurrentAlert()">
+        <i class="fa fa-check"></i> Resolve Alert
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ MODAL: INGEST ALERT ══ -->
+<div class="modal-overlay" id="modal-ingest" onclick="handleOverlayClick(event,'modal-ingest')">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <h3>Ingest New Alert</h3>
+      <button class="modal-close" onclick="closeModal('modal-ingest')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Alert ID <span style="color:var(--red)">*</span></label>
+        <input id="ing-alert-id" placeholder="e.g. EVT-0042"/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label>Source Type <span style="color:var(--red)">*</span></label>
+          <select id="ing-source">
+            <option>TELEMATICS</option>
+            <option>HR_SYSTEM</option>
+            <option>DRIVER_APP</option>
+            <option>DOCUMENT_SERVICE</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Severity <span style="color:var(--red)">*</span></label>
+          <select id="ing-severity">
+            <option>INFO</option>
+            <option selected>WARNING</option>
+            <option>CRITICAL</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Driver ID</label>
+        <input id="ing-driver-id" placeholder="e.g. D123"/>
+      </div>
+      <div class="form-group">
+        <label>Additional Metadata (JSON key=value pairs)</label>
+        <input id="ing-speed" placeholder='speed (e.g. 95)'/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-ingest')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitIngestAlert()">
+        <i class="fa fa-paper-plane"></i> Ingest Alert
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ MODAL: RULE FORM ═══ -->
+<div class="modal-overlay" id="modal-rule" onclick="handleOverlayClick(event,'modal-rule')">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <h3 id="rule-modal-title">Create Escalation Rule</h3>
+      <button class="modal-close" onclick="closeModal('modal-rule')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="rule-edit-id"/>
+      <div class="form-group">
+        <label>Rule Name <span style="color:var(--red)">*</span></label>
+        <input id="rule-name" placeholder="e.g. Overspeed Escalation"/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label>Target Source Type</label>
+          <input id="rule-source" placeholder="TELEMATICS or * for all"/>
+        </div>
+        <div class="form-group">
+          <label>Action <span style="color:var(--red)">*</span></label>
+          <select id="rule-action">
+            <option value="ESCALATE">ESCALATE</option>
+            <option value="AUTO_CLOSE">AUTO_CLOSE</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label>Condition Type</label>
+          <select id="rule-condition">
+            <option value="FREQUENCY">FREQUENCY</option>
+            <option value="METADATA_MATCH">METADATA_MATCH</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Group By Key</label>
+          <input id="rule-groupby" value="driverId"/>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label>Threshold Count</label>
+          <input id="rule-threshold" type="number" value="3" min="1"/>
+        </div>
+        <div class="form-group">
+          <label>Time Window (minutes)</label>
+          <input id="rule-window" type="number" value="60" min="1"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Escalation Severity (for ESCALATE action)</label>
+        <select id="rule-escalation-sev">
+          <option value="">Keep original</option>
+          <option value="WARNING">WARNING</option>
+          <option value="CRITICAL">CRITICAL</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input id="rule-desc" placeholder="Optional description"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-rule')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitRule()">
+        <i class="fa fa-save"></i> Save Rule
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ MODAL: RESOLVE ════ -->
+<div class="modal-overlay" id="modal-resolve" onclick="handleOverlayClick(event,'modal-resolve')">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3>Resolve Alert</h3>
+      <button class="modal-close" onclick="closeModal('modal-resolve')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Resolution Notes</label>
+        <textarea id="resolve-notes" placeholder="Briefly describe the resolution action taken..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-resolve')">Cancel</button>
+      <button class="btn btn-success" onclick="submitResolve()">
+        <i class="fa fa-check-circle"></i> Confirm Resolve
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TOASTS -->
+<div id="toasts"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

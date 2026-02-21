@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: fleetguard-db
+    environment:
+      POSTGRES_DB: alertdb
+      POSTGRES_USER: fleetguard
+      POSTGRES_PASSWORD: fleetguard123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U fleetguard -d alertdb" ]
+      interval: 10s
+      retries: 5
+
+  app:
+    build: .
+    container_name: fleetguard-app
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/alertdb
+      DB_DRIVER: org.postgresql.Driver
+      DB_USER: fleetguard
+      DB_PASS: fleetguard123
+      JWT_SECRET: your-super-secret-key-replace-in-production-min-32-chars
+      JWT_EXPIRATION: 3600000
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+
+volumes:
+  postgres_data:
