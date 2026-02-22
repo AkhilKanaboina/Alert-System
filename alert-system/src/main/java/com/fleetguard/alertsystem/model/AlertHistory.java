@@ -2,6 +2,7 @@ package com.fleetguard.alertsystem.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
 
@@ -46,6 +47,6 @@ public class AlertHistory {
 
     private String notes;
 
-    @Builder.Default
-    private Instant changedAt = Instant.now();
+    @CreationTimestamp
+    private Instant changedAt;
 }

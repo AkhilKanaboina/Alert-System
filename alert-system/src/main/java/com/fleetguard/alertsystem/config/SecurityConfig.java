@@ -63,7 +63,6 @@ public class SecurityConfig {
                         .requestMatchers("/", "/index.html", "/*.js", "/*.css", "/favicon.ico").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers("/h2-console/**").permitAll()
                         // Auth-required endpoints
                         .requestMatchers(HttpMethod.DELETE, "/api/alerts/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/rules/**").hasRole("ADMIN")

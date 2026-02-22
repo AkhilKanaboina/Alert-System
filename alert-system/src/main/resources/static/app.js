@@ -2,13 +2,13 @@
 // CONFIG & STATE
 // ══════════════════════════════════════════════════════════════
 const API = '/api';
-let token        = sessionStorage.getItem('fg_token');
-let currentUser  = JSON.parse(sessionStorage.getItem('fg_user') || 'null');
-let currentPage  = 'dashboard';
-let alertPage    = 0;
-let alertTotal   = 0;
+let token = sessionStorage.getItem('fg_token');
+let currentUser = JSON.parse(sessionStorage.getItem('fg_user') || 'null');
+let currentPage = 'dashboard';
+let alertPage = 0;
+let alertTotal = 0;
 let resolveAlertId = null;
-let trendChart   = null;
+let trendChart = null;
 let refreshTimer = null;
 
 // ══════════════════════════════════════════════════════════════
@@ -17,7 +17,7 @@ let refreshTimer = null;
 function init() {
   startClock();
   if (token) showApp();
-  else       showLogin();
+  else showLogin();
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllModals(); });
 }
 
@@ -46,7 +46,7 @@ async function apiFetch(method, path, body) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const msg = data.message
-      || (data.errors && data.errors[0] && data.errors[0].defaultMessage)
+      || (data.fieldErrors && Object.values(data.fieldErrors)[0])
       || data.error
       || ('Request failed (' + res.status + ')');
     throw new Error(msg);
@@ -83,7 +83,7 @@ async function doLogin() {
 async function doRegister() {
   const username = document.getElementById('reg-username').value.trim();
   const password = document.getElementById('reg-password').value;
-  const role     = document.getElementById('reg-role').value;
+  const role = document.getElementById('reg-role').value;
   if (!username || !password) return toast('Fill in all fields', 'error');
   try {
     await apiFetch('POST', '/auth/register', { username, password, role });
@@ -109,8 +109,8 @@ function showApp() {
   document.getElementById('login-page').classList.add('hidden');
   document.getElementById('main-app').classList.remove('hidden');
   document.getElementById('sidebar-username').textContent = currentUser?.username || '—';
-  document.getElementById('sidebar-role').textContent     = currentUser?.role    || '—';
-  document.getElementById('user-avatar').textContent      = (currentUser?.username || 'U')[0].toUpperCase();
+  document.getElementById('sidebar-role').textContent = currentUser?.role || '—';
+  document.getElementById('user-avatar').textContent = (currentUser?.username || 'U')[0].toUpperCase();
   navigate('dashboard');
   startAutoRefresh();
 }
@@ -119,9 +119,9 @@ function showApp() {
 // NAVIGATION
 // ══════════════════════════════════════════════════════════════
 const PAGE_META = {
-  dashboard: { title: 'Dashboard',         sub: 'Real-time fleet alert overview' },
-  alerts:    { title: 'Alert Management',  sub: 'Browse, filter, ingest and resolve alerts' },
-  rules:     { title: 'Escalation Rules',  sub: 'Configure rule-based escalation logic' }
+  dashboard: { title: 'Dashboard', sub: 'Real-time fleet alert overview' },
+  alerts: { title: 'Alert Management', sub: 'Browse, filter, ingest and resolve alerts' },
+  rules: { title: 'Escalation Rules', sub: 'Configure rule-based escalation logic' }
 };
 
 function navigate(page) {
@@ -131,11 +131,11 @@ function navigate(page) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('nav-' + page)?.classList.add('active');
   const m = PAGE_META[page] || {};
-  document.getElementById('page-title').textContent    = m.title || '';
-  document.getElementById('page-subtitle').textContent = m.sub   || '';
+  document.getElementById('page-title').textContent = m.title || '';
+  document.getElementById('page-subtitle').textContent = m.sub || '';
   if (page === 'dashboard') loadDashboard();
-  if (page === 'alerts')    loadAlerts(0);
-  if (page === 'rules')     loadRules();
+  if (page === 'alerts') loadAlerts(0);
+  if (page === 'rules') loadRules();
 }
 
 function refreshCurrentPage() { navigate(currentPage); }
@@ -158,18 +158,18 @@ async function loadDashboard() {
       apiFetch('GET', '/dashboard/top-offenders?limit=5'),
       apiFetch('GET', '/dashboard/recent-events?limit=10')
     ]);
-    if (overview)  renderOverview(overview);
-    if (trends)    renderTrendChart(trends);
+    if (overview) renderOverview(overview);
+    if (trends) renderTrendChart(trends);
     if (offenders) renderTopOffenders(offenders);
-    if (events)    renderRecentEvents(events);
+    if (events) renderRecentEvents(events);
   } catch (e) { toast('Dashboard load failed: ' + e.message, 'error'); }
 }
 
 function renderOverview(d) {
-  document.getElementById('stat-open').textContent      = d.open      ?? 0;
+  document.getElementById('stat-open').textContent = d.open ?? 0;
   document.getElementById('stat-escalated').textContent = d.escalated ?? 0;
-  document.getElementById('stat-critical').textContent  = d.criticalCount ?? 0;
-  document.getElementById('stat-resolved').textContent  = d.resolved  ?? 0;
+  document.getElementById('stat-critical').textContent = d.criticalCount ?? 0;
+  document.getElementById('stat-resolved').textContent = d.resolved ?? 0;
   const badge = document.getElementById('nav-open-count');
   const openCnt = d.open ?? 0;
   badge.style.display = openCnt > 0 ? '' : 'none';
@@ -178,11 +178,11 @@ function renderOverview(d) {
 
 function renderTrendChart(trends) {
   const daily = trends.dailyAlerts || [];
-  const esc   = trends.dailyEscalations || [];
+  const esc = trends.dailyEscalations || [];
   const labels = [...new Set([...daily.map(r => r.date), ...esc.map(r => r.date)])].sort();
-  const toMap  = arr => Object.fromEntries(arr.map(r => [r.date, r.count]));
-  const dMap   = toMap(daily);
-  const eMap   = toMap(esc);
+  const toMap = arr => Object.fromEntries(arr.map(r => [r.date, r.count]));
+  const dMap = toMap(daily);
+  const eMap = toMap(esc);
 
   const ctx = document.getElementById('trend-chart').getContext('2d');
   if (trendChart) trendChart.destroy();
@@ -256,10 +256,10 @@ function renderRecentEvents(events) {
 // ══════════════════════════════════════════════════════════════
 async function loadAlerts(page) {
   if (page !== undefined) alertPage = page;
-  const status   = document.getElementById('filter-status').value;
+  const status = document.getElementById('filter-status').value;
   const severity = document.getElementById('filter-severity').value;
   let path = `/alerts?page=${alertPage}&size=10`;
-  if (status)   path += '&status=' + status;
+  if (status) path += '&status=' + status;
   if (severity) path += '&severity=' + severity;
   try {
     const data = await apiFetch('GET', path);
@@ -280,7 +280,7 @@ function renderAlertsTable(alerts) {
   }
   tbody.innerHTML = alerts.map(a => {
     const meta = a.metadata || {};
-    const canResolve = ['OPEN','ESCALATED'].includes(a.status);
+    const canResolve = ['OPEN', 'ESCALATED'].includes(a.status);
     return `
     <tr onclick="viewAlert('${a.id}')">
       <td><code>${a.alertId}</code></td>
@@ -304,7 +304,7 @@ function renderAlertsTable(alerts) {
 function renderPagination(page) {
   const el = document.getElementById('alerts-pagination');
   const total = page.totalPages || 0;
-  const cur   = page.number || 0;
+  const cur = page.number || 0;
   if (total <= 1) { el.innerHTML = ''; return; }
   let html = `<span class="page-info">Page ${cur + 1} of ${total}</span>`;
   html += `<button class="page-btn" ${cur === 0 ? 'disabled' : ''} onclick="loadAlerts(${cur - 1})"><i class="fa fa-chevron-left"></i></button>`;
@@ -321,28 +321,28 @@ async function viewAlert(id) {
     const a = await apiFetch('GET', '/alerts/' + id);
     if (!a) return;
     document.getElementById('detail-modal-title').textContent = 'Alert: ' + a.alertId;
-    const canResolve = ['OPEN','ESCALATED'].includes(a.status);
+    const canResolve = ['OPEN', 'ESCALATED'].includes(a.status);
     document.getElementById('detail-resolve-btn').style.display = canResolve ? '' : 'none';
     resolveAlertId = a.id;
 
     // Meta info grid
     const meta = [
       ['Alert ID', `<code>${a.alertId}</code>`],
-      ['Source',   a.sourceType],
+      ['Source', a.sourceType],
       ['Severity', severityBadge(a.severity)],
-      ['Status',   statusBadge(a.status)],
+      ['Status', statusBadge(a.status)],
       ['Timestamp', fmtDate(a.timestamp)],
-      ['Created',   fmtDate(a.createdAt)]
+      ['Created', fmtDate(a.createdAt)]
     ];
-    document.getElementById('detail-meta').innerHTML = meta.map(([k,v]) =>
+    document.getElementById('detail-meta').innerHTML = meta.map(([k, v]) =>
       `<div class="meta-item"><div class="meta-key">${k}</div><div class="meta-val">${v}</div></div>`).join('');
 
     // Payload
     const payload = a.metadata || {};
     const payloadEntries = Object.entries(payload);
     document.getElementById('detail-payload').innerHTML = payloadEntries.length
-      ? payloadEntries.map(([k,v]) =>
-          `<div class="meta-item"><div class="meta-key">${k}</div><div class="meta-val"><code>${v}</code></div></div>`).join('')
+      ? payloadEntries.map(([k, v]) =>
+        `<div class="meta-item"><div class="meta-key">${k}</div><div class="meta-val"><code>${v}</code></div></div>`).join('')
       : '<div class="text-muted" style="padding:8px">No metadata available</div>';
 
     // History timeline
@@ -362,7 +362,7 @@ async function viewAlert(id) {
           </div>
         </div>`).join('');
     openModal('modal-detail-overlay');
-  } catch(e) { toast('Could not load alert: ' + e.message, 'error'); }
+  } catch (e) { toast('Could not load alert: ' + e.message, 'error'); }
 }
 
 // ── Resolve from detail modal ─────────────────────────────────
@@ -383,22 +383,22 @@ async function submitResolve() {
     await apiFetch('PUT', '/alerts/' + resolveAlertId + '/resolve', { resolutionNotes: notes });
     toast('Alert resolved successfully', 'success');
     closeAllModals();
-    if (currentPage === 'alerts')    loadAlerts();
+    if (currentPage === 'alerts') loadAlerts();
     if (currentPage === 'dashboard') loadDashboard();
-  } catch(e) { toast(e.message, 'error'); }
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 // ── Ingest New Alert ─────────────────────────────────────────
 async function submitIngestAlert() {
-  const alertId  = document.getElementById('ing-alert-id').value.trim();
-  const source   = document.getElementById('ing-source').value;
+  const alertId = document.getElementById('ing-alert-id').value.trim();
+  const source = document.getElementById('ing-source').value;
   const severity = document.getElementById('ing-severity').value;
   const driverId = document.getElementById('ing-driver-id').value.trim();
-  const speed    = document.getElementById('ing-speed').value.trim();
+  const speed = document.getElementById('ing-speed').value.trim();
   if (!alertId) return toast('Alert ID is required', 'error');
   const metadata = {};
   if (driverId) metadata.driverId = driverId;
-  if (speed)    metadata.speed    = parseInt(speed) || speed;
+  if (speed) metadata.speed = parseInt(speed) || speed;
   try {
     await apiFetch('POST', '/alerts', {
       alertId, sourceType: source, severity,
@@ -409,9 +409,9 @@ async function submitIngestAlert() {
     document.getElementById('ing-alert-id').value = '';
     document.getElementById('ing-driver-id').value = '';
     document.getElementById('ing-speed').value = '';
-    if (currentPage === 'alerts')    loadAlerts(0);
+    if (currentPage === 'alerts') loadAlerts(0);
     if (currentPage === 'dashboard') loadDashboard();
-  } catch(e) { toast(e.message, 'error'); }
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -421,7 +421,7 @@ async function loadRules() {
   try {
     const rules = await apiFetch('GET', '/rules');
     renderRulesTable(rules || []);
-  } catch(e) { toast('Failed to load rules: ' + e.message, 'error'); }
+  } catch (e) { toast('Failed to load rules: ' + e.message, 'error'); }
 }
 
 function renderRulesTable(rules) {
@@ -435,14 +435,14 @@ function renderRulesTable(rules) {
       <td><span style="font-weight:600;color:var(--text)">${r.name}</span><br/><span class="text-muted">${r.description || ''}</span></td>
       <td><code>${r.targetSourceType}</code></td>
       <td><span class="badge badge-info">${r.conditionType}</span></td>
-      <td><span style="font-weight:700;color:${r.action==='ESCALATE'?'var(--purple)':'var(--cyan)'}">${r.thresholdCount}×</span></td>
+      <td><span style="font-weight:700;color:${r.action === 'ESCALATE' ? 'var(--purple)' : 'var(--cyan)'}">${r.thresholdCount}×</span></td>
       <td>${r.timeWindowMinutes}m</td>
-      <td><span class="badge ${r.action==='ESCALATE'?'badge-escalated':'badge-auto_closed'}">${r.action}</span></td>
+      <td><span class="badge ${r.action === 'ESCALATE' ? 'badge-escalated' : 'badge-auto_closed'}">${r.action}</span></td>
       <td onclick="event.stopPropagation()">
-        <label class="toggle"><input type="checkbox" ${r.isActive?'checked':''} onchange="toggleRule('${r.id}',${r.isActive})"/><span class="toggle-slider"></span></label>
+        <label class="toggle"><input type="checkbox" ${r.isActive ? 'checked' : ''} onchange="toggleRule('${r.id}',${r.isActive})"/><span class="toggle-slider"></span></label>
       </td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap">
-        <button class="btn btn-ghost btn-sm" onclick="openEditRuleModal(${JSON.stringify(r).replace(/"/g,'&quot;')})">
+        <button class="btn btn-ghost btn-sm" onclick="openEditRuleModal(${JSON.stringify(r).replace(/"/g, '&quot;')})">
           <i class="fa fa-pen"></i>
         </button>
         <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="deleteRule('${r.id}','${r.name}')">
@@ -483,28 +483,28 @@ function openEditRuleModal(r) {
 }
 
 async function submitRule() {
-  const id   = document.getElementById('rule-edit-id').value;
+  const id = document.getElementById('rule-edit-id').value;
   const name = document.getElementById('rule-name').value.trim();
   if (!name) return toast('Rule name is required', 'error');
   const body = {
     name,
-    description:       document.getElementById('rule-desc').value,
-    targetSourceType:  document.getElementById('rule-source').value,
-    action:            document.getElementById('rule-action').value,
-    conditionType:     document.getElementById('rule-condition').value,
-    groupByMetadataKey:document.getElementById('rule-groupby').value,
-    thresholdCount:    parseInt(document.getElementById('rule-threshold').value),
+    description: document.getElementById('rule-desc').value,
+    targetSourceType: document.getElementById('rule-source').value,
+    action: document.getElementById('rule-action').value,
+    conditionType: document.getElementById('rule-condition').value,
+    groupByMetadataKey: document.getElementById('rule-groupby').value,
+    thresholdCount: parseInt(document.getElementById('rule-threshold').value),
     timeWindowMinutes: parseInt(document.getElementById('rule-window').value),
-    escalationSeverity:document.getElementById('rule-escalation-sev').value || null,
+    escalationSeverity: document.getElementById('rule-escalation-sev').value || null,
     isActive: true
   };
   try {
-    if (id) await apiFetch('PUT',  '/rules/' + id, body);
-    else    await apiFetch('POST', '/rules', body);
+    if (id) await apiFetch('PUT', '/rules/' + id, body);
+    else await apiFetch('POST', '/rules', body);
     toast(id ? 'Rule updated' : 'Rule created', 'success');
     closeModal('modal-rule');
     loadRules();
-  } catch(e) { toast(e.message, 'error'); }
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 async function toggleRule(id, current) {
@@ -512,7 +512,7 @@ async function toggleRule(id, current) {
     await apiFetch('PATCH', '/rules/' + id + '/toggle', { isActive: !current });
     toast('Rule ' + (!current ? 'enabled' : 'disabled'), 'info');
     loadRules();
-  } catch(e) { toast(e.message, 'error'); }
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 async function deleteRule(id, name) {
@@ -521,7 +521,7 @@ async function deleteRule(id, name) {
     await apiFetch('DELETE', '/rules/' + id);
     toast('Rule deleted', 'success');
     loadRules();
-  } catch(e) { toast(e.message, 'error'); }
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 // ══════════════════════════════════════════════════════════════

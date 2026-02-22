@@ -1,5 +1,6 @@
 package com.fleetguard.alertsystem.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fleetguard.alertsystem.dto.response.AlertResponse;
 import com.fleetguard.alertsystem.model.AlertStatus;
 import com.fleetguard.alertsystem.model.AlertSeverity;
@@ -23,6 +24,7 @@ public class DashboardService {
 
     private final AlertRepository alertRepository;
     private final AlertService alertService;
+    private final ObjectMapper objectMapper;
 
     /**
      * Overview counts by status and severity.
@@ -32,21 +34,21 @@ public class DashboardService {
     @Transactional(readOnly = true)
     public Map<String, Object> getOverview() {
         return Map.of(
-                "totalAlerts",    alertRepository.count(),
-                "open",           alertRepository.countByStatus(AlertStatus.OPEN),
-                "escalated",      alertRepository.countByStatus(AlertStatus.ESCALATED),
-                "autoClosed",     alertRepository.countByStatus(AlertStatus.AUTO_CLOSED),
-                "resolved",       alertRepository.countByStatus(AlertStatus.RESOLVED),
-                "infoCount",      alertRepository.countBySeverity(AlertSeverity.INFO),
-                "warningCount",   alertRepository.countBySeverity(AlertSeverity.WARNING),
-                "criticalCount",  alertRepository.countBySeverity(AlertSeverity.CRITICAL),
-                "generatedAt",    Instant.now()
-        );
+                "totalAlerts", alertRepository.count(),
+                "open", alertRepository.countByStatus(AlertStatus.OPEN),
+                "escalated", alertRepository.countByStatus(AlertStatus.ESCALATED),
+                "autoClosed", alertRepository.countByStatus(AlertStatus.AUTO_CLOSED),
+                "resolved", alertRepository.countByStatus(AlertStatus.RESOLVED),
+                "infoCount", alertRepository.countBySeverity(AlertSeverity.INFO),
+                "warningCount", alertRepository.countBySeverity(AlertSeverity.WARNING),
+                "criticalCount", alertRepository.countBySeverity(AlertSeverity.CRITICAL),
+                "generatedAt", Instant.now());
     }
 
     /**
      * Top N drivers by open/escalated alert count.
-     * Groups in-memory from deserialized metadata — avoids SQL JSON parsing differences.
+     * Groups in-memory from deserialized metadata — avoids SQL JSON parsing
+     * differences.
      */
     @Cacheable("dashboard-top-offenders")
     @Transactional(readOnly = true)
@@ -55,21 +57,24 @@ public class DashboardService {
                 List.of(AlertStatus.OPEN, AlertStatus.ESCALATED));
         return alerts.stream()
                 .filter(a -> {
-                    if (a.getMetadata() == null) return false;
+                    if (a.getMetadata() == null)
+                        return false;
                     try {
                         @SuppressWarnings("unchecked")
-                        Map<String, Object> m = new com.fasterxml.jackson.databind.ObjectMapper()
-                                .readValue(a.getMetadata(), Map.class);
+                        Map<String, Object> m = objectMapper.readValue(a.getMetadata(), Map.class);
                         return m.containsKey("driverId");
-                    } catch (Exception e) { return false; }
+                    } catch (Exception e) {
+                        return false;
+                    }
                 })
                 .collect(java.util.stream.Collectors.groupingBy(a -> {
                     try {
                         @SuppressWarnings("unchecked")
-                        Map<String, Object> m = new com.fasterxml.jackson.databind.ObjectMapper()
-                                .readValue(a.getMetadata(), Map.class);
+                        Map<String, Object> m = objectMapper.readValue(a.getMetadata(), Map.class);
                         return m.getOrDefault("driverId", "UNKNOWN").toString();
-                    } catch (Exception e) { return "UNKNOWN"; }
+                    } catch (Exception e) {
+                        return "UNKNOWN";
+                    }
                 }, java.util.stream.Collectors.counting()))
                 .entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
@@ -143,11 +148,10 @@ public class DashboardService {
         return Map.of(
                 "periodDays", days,
                 "since", since,
-                "dailyAlerts",       toTrendEntries(dailyAll),
-                "dailyEscalations",  toTrendEntries(dailyEsc),
-                "totalInPeriod",     alertRepository.countSince(since),
-                "escalatedInPeriod", alertRepository.countByStatusSince(AlertStatus.ESCALATED, since)
-        );
+                "dailyAlerts", toTrendEntries(dailyAll),
+                "dailyEscalations", toTrendEntries(dailyEsc),
+                "totalInPeriod", alertRepository.countSince(since),
+                "escalatedInPeriod", alertRepository.countByStatusSince(AlertStatus.ESCALATED, since));
     }
 
     private List<Map<String, Object>> toTrendEntries(Map<String, Long> map) {
