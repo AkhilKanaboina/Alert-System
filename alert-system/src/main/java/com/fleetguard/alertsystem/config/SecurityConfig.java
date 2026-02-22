@@ -11,7 +11,6 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -52,47 +51,33 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
-    /**
-     * Completely bypass Spring Security for all frontend static resources.
-     * This is the most reliable approach — files in /static/ are served
-     * by the default servlet without any JWT filter interception.
-     */
-    @Bean
-    public WebSecurityCustomizer webSecurityCustomizer() {
-        return web -> web.ignoring().requestMatchers(
-                "/", "/index.html", "/styles.css", "/app.js",
-                "/favicon.ico", "/*.css", "/*.js", "/static/**"
-        );
-    }
-
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable)
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                // Public endpoints
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/", "/index.html", "/*.js", "/*.css", "/favicon.ico").permitAll()
-                .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/api-docs/**").permitAll()
-                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                .requestMatchers("/h2-console/**").permitAll()
-                // Auth-required endpoints
-                .requestMatchers(HttpMethod.DELETE, "/api/alerts/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/rules/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/rules/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/rules/**").hasRole("ADMIN")
-                .requestMatchers("/api/rules/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/alerts/*/resolve").hasAnyRole("OPERATOR", "ADMIN")
-                .requestMatchers("/actuator/**").hasRole("ADMIN")
-                .anyRequest().authenticated()
-            )
-            .authenticationProvider(authenticationProvider())
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        // Public endpoints
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/", "/index.html", "/*.js", "/*.css", "/favicon.ico").permitAll()
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/api-docs/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers("/h2-console/**").permitAll()
+                        // Auth-required endpoints
+                        .requestMatchers(HttpMethod.DELETE, "/api/alerts/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/rules/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/rules/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/rules/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/rules/**").hasRole("ADMIN")
+                        .requestMatchers("/api/rules/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/alerts/*/resolve").hasAnyRole("OPERATOR", "ADMIN")
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
+                        .anyRequest().authenticated())
+                .authenticationProvider(authenticationProvider())
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-        // Allow H2 console frames
-        http.headers(headers -> headers.frameOptions(f -> f.sameOrigin()));
+        // No H2 frames needed with PostgreSQL — remove sameOrigin override
 
         return http.build();
     }

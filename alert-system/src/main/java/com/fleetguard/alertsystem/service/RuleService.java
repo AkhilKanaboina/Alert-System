@@ -58,17 +58,28 @@ public class RuleService {
         EscalationRule rule = ruleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Rule", id));
 
-        if (req.getName() != null) rule.setName(req.getName());
-        if (req.getDescription() != null) rule.setDescription(req.getDescription());
-        if (req.getTargetSourceType() != null) rule.setTargetSourceType(req.getTargetSourceType());
-        if (req.getAction() != null) rule.setAction(req.getAction());
-        if (req.getConditionType() != null) rule.setConditionType(req.getConditionType());
-        if (req.getThresholdCount() != null) rule.setThresholdCount(req.getThresholdCount());
-        if (req.getTimeWindowMinutes() != null) rule.setTimeWindowMinutes(req.getTimeWindowMinutes());
-        if (req.getEscalationSeverity() != null) rule.setEscalationSeverity(req.getEscalationSeverity());
-        if (req.getMetadataMatchCriteria() != null) rule.setMetadataMatchCriteria(req.getMetadataMatchCriteria());
-        if (req.getGroupByMetadataKey() != null) rule.setGroupByMetadataKey(req.getGroupByMetadataKey());
-        if (req.getIsActive() != null) rule.setIsActive(req.getIsActive());
+        if (req.getName() != null)
+            rule.setName(req.getName());
+        if (req.getDescription() != null)
+            rule.setDescription(req.getDescription());
+        if (req.getTargetSourceType() != null)
+            rule.setTargetSourceType(req.getTargetSourceType());
+        if (req.getAction() != null)
+            rule.setAction(req.getAction());
+        if (req.getConditionType() != null)
+            rule.setConditionType(req.getConditionType());
+        if (req.getThresholdCount() != null)
+            rule.setThresholdCount(req.getThresholdCount());
+        if (req.getTimeWindowMinutes() != null)
+            rule.setTimeWindowMinutes(req.getTimeWindowMinutes());
+        if (req.getEscalationSeverity() != null)
+            rule.setEscalationSeverity(req.getEscalationSeverity());
+        if (req.getMetadataMatchCriteria() != null)
+            rule.setMetadataMatchCriteria(req.getMetadataMatchCriteria());
+        if (req.getGroupByMetadataKey() != null)
+            rule.setGroupByMetadataKey(req.getGroupByMetadataKey());
+        if (req.getIsActive() != null)
+            rule.setIsActive(req.getIsActive());
 
         rule = ruleRepository.save(rule);
         log.info("Updated rule [{}]: active={}", rule.getId(), rule.getIsActive());
@@ -82,6 +93,20 @@ public class RuleService {
         }
         ruleRepository.deleteById(id);
         log.info("Deleted rule [{}]", id);
+    }
+
+    /**
+     * Toggles only the isActive flag without requiring the full request body.
+     * Used by PATCH /api/rules/{id}/toggle.
+     */
+    @Transactional
+    public RuleResponse toggleActive(String id, boolean isActive) {
+        EscalationRule rule = ruleRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Rule", id));
+        rule.setIsActive(isActive);
+        rule = ruleRepository.save(rule);
+        log.info("Rule [{}] toggled active={}", rule.getId(), isActive);
+        return toResponse(rule);
     }
 
     public RuleResponse toResponse(EscalationRule r) {

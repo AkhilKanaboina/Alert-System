@@ -44,7 +44,13 @@ async function apiFetch(method, path, body) {
   if (res.status === 401) { doLogout(); return null; }
   if (res.status === 204) return {};
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || 'Request failed (' + res.status + ')');
+  if (!res.ok) {
+    const msg = data.message
+      || (data.errors && data.errors[0] && data.errors[0].defaultMessage)
+      || data.error
+      || ('Request failed (' + res.status + ')');
+    throw new Error(msg);
+  }
   return data;
 }
 
@@ -503,7 +509,7 @@ async function submitRule() {
 
 async function toggleRule(id, current) {
   try {
-    await apiFetch('PUT', '/rules/' + id, { isActive: !current });
+    await apiFetch('PATCH', '/rules/' + id + '/toggle', { isActive: !current });
     toast('Rule ' + (!current ? 'enabled' : 'disabled'), 'info');
     loadRules();
   } catch(e) { toast(e.message, 'error'); }

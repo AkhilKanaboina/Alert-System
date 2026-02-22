@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/rules")
@@ -41,10 +42,20 @@ public class RuleController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ruleService.create(request));
     }
 
-    @Operation(summary = "Update a rule (ADMIN) — supports partial update, can toggle isActive")
+    @Operation(summary = "Update a rule (ADMIN) — full update")
     @PutMapping("/{id}")
-    public ResponseEntity<RuleResponse> update(@PathVariable String id, @RequestBody RuleRequest request) {
+    public ResponseEntity<RuleResponse> update(@PathVariable String id, @Valid @RequestBody RuleRequest request) {
         return ResponseEntity.ok(ruleService.update(id, request));
+    }
+
+    @Operation(summary = "Toggle a rule's active/inactive state (ADMIN)")
+    @PatchMapping("/{id}/toggle")
+    public ResponseEntity<RuleResponse> toggle(@PathVariable String id, @RequestBody Map<String, Boolean> body) {
+        Boolean isActive = body.get("isActive");
+        if (isActive == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(ruleService.toggleActive(id, isActive));
     }
 
     @Operation(summary = "Delete a rule (ADMIN)")
